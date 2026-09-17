@@ -3,520 +3,1005 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RD→FD Cumulative Planner (Compound Roll-Over)</title>
-    <!-- Bootstrap CSS for responsive design -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Chart.js for charts -->
+    <title>RD→FD Cumulative Planner</title>
+    <!-- Chart.js for visualizations -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- SheetJS for Excel export -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-    <!-- jsPDF for PDF report -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <!-- html2canvas for capturing charts in PDF -->
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <style>
-        body { padding: 20px; background-color: #f8f9fa; }
-        .hidden { display: none; }
-        .card { border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        .btn { border-radius: 5px; }
-        h1, h2, h3 { color: #333; }
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --success: #10b981;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --border: #e5e7eb;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+
+        body {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            color: var(--primary-dark);
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            color: var(--text-light);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--primary-dark);
+            border-bottom: 2px solid var(--bg);
+            padding-bottom: 0.5rem;
+        }
+
+        /* Form Styles */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--text-light);
+        }
+
+        .form-group input, .form-group select {
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
+        
+        .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+        .btn-secondary:hover { background: #e5e7eb; }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .summary-item {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 1.25rem;
+            border-radius: 10px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .summary-item.interest { border-left-color: var(--success); }
+        .summary-item.corpus { border-left-color: #f59e0b; }
+
+        .summary-item h3 { font-size: 0.85rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; }
+        .summary-item p { font-size: 1.5rem; font-weight: 700; color: var(--text); margin-top: 0.25rem; }
+
+        /* Table Styles */
+        .table-wrapper { overflow-x: auto; }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: right;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th { background: #f8fafc; color: var(--text-light); font-weight: 600; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5px; }
+        td:first-child, th:first-child { text-align: center; }
+        tr:hover { background: #f9fafb; }
+
+        /* Chart */
+        .chart-container {
+            position: relative;
+            height: 350px;
+            width: 100%;
+        }
+
+        .hidden { display: none !important; }
+
+        /* Print Styles for PDF */
+        @media print {
+            body { background: white; padding: 0; }
+            .card { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
+            .btn-group, header p { display: none; }
+            .no-print { display: none; }
+        }
+
+        @media (max-width: 768px) {
+            header h1 { font-size: 1.75rem; }
+            .form-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="card p-4 mb-4">
-            <h1 class="text-center mb-4">RD→FD Cumulative Planner (Compound Roll-Over)</h1>
-            <p>This tool helps you plan your recurring deposits (RD) rolling over into fixed deposits (FD) with compounding. It supports three modes: calculating the schedule, solving for initial deposit, or solving for annual increment. Default interest rate is set to 7% based on current RD/FD rates in India around 4.75% to 8.50% as of August 2025.<grok-card data-id="d9eb8a" data-type="citation_card"></grok-card> You can adjust it as needed.</p>
+
+<div class="container">
+    <header>
+        <h1>RD→FD Cumulative Planner</h1>
+        <p>Plan your recurring deposits rolling over into fixed deposits with compound interest. Solve for schedules, initial deposits, or annual increments.</p>
+    </header>
+
+    <!-- Input Card -->
+    <div class="card no-print">
+        <h2 class="card-title">Configuration</h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Annual Interest Rate (%)</label>
+                <input type="number" id="rate" value="7" step="0.1" min="0">
+            </div>
+            <div class="form-group">
+                <label>Total Number of Years</label>
+                <input type="number" id="years" value="10" min="1" max="50">
+            </div>
+            <div class="form-group">
+                <label>Choose Mode</label>
+                <select id="mode" onchange="toggleMode()">
+                    <option value="1">1) Initial & Increment → Show Schedule</option>
+                    <option value="2">2) Increment & Target → Solve Initial Deposit</option>
+                    <option value="3">3) Initial & Target → Solve Increment</option>
+                </select>
+            </div>
+            <div class="form-group" id="grp-initial">
+                <label>Initial Monthly RD Deposit (₹)</label>
+                <input type="number" id="initial" value="10000" min="100">
+            </div>
+            <div class="form-group" id="grp-increment">
+                <label>Annual Increment (%)</label>
+                <input type="number" id="increment" value="10" step="0.1" min="0">
+            </div>
+            <div class="form-group hidden" id="grp-target">
+                <label>Target Corpus After Roll-Overs (₹)</label>
+                <input type="number" id="target" value="5000000" min="1000">
+            </div>
         </div>
-
-        <!-- Input Form -->
-        <div class="card p-4 mb-5">
-            <form id="plannerForm">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="annualRate" class="form-label">Annual Interest Rate (%):</label>
-                            <input type="number" class="form-control" id="annualRate" value="7" step="0.1" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="years" class="form-label">Total Number of Years:</label>
-                            <input type="number" class="form-control" id="years" value="5" min="1" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="mode" class="form-label">Choose Mode:</label>
-                            <select class="form-select" id="mode" required>
-                                <option value="1">1) Initial Deposit & Increment → Show Schedule</option>
-                                <option value="2">2) Increment & Target Corpus → Solve for Initial Deposit</option>
-                                <option value="3">3) Initial Deposit & Target Corpus → Solve for Increment</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="mb-3" id="initDepField">
-                            <label for="initialMonthly" class="form-label">Initial Monthly RD Deposit (₹):</label>
-                            <input type="number" class="form-control" id="initialMonthly" value="5000" step="0.01">
-                        </div>
-                        <div class="mb-3" id="incPctField">
-                            <label for="annualIncPct" class="form-label">Annual Increment (%):</label>
-                            <input type="number" class="form-control" id="annualIncPct" value="10" step="0.1">
-                        </div>
-                        <div class="mb-3 hidden" id="targetCorpusField">
-                            <label for="targetCorpus" class="form-label">Target Corpus After Roll-Overs (₹):</label>
-                            <input type="number" class="form-control" id="targetCorpus" value="1000000" step="0.01">
-                        </div>
-                    </div>
-                </div>
-                <button type="button" class="btn btn-primary w-100" onclick="calculatePlan()">Calculate</button>
-            </form>
-        </div>
-
-        <!-- Results Section -->
-        <div id="results" class="hidden card p-4">
-            <h2>Results</h2>
-            <p id="computedValue"></p>
-            <h3>Schedule</h3>
-            <table class="table table-striped" id="scheduleTable">
-                <thead>
-                    <tr>
-                        <th>Year</th>
-                        <th>Deposit/mo</th>
-                        <th>RD Maturity</th>
-                        <th>Total Corpus After FD</th>
-                        <th>Yearly Invested</th>
-                        <th>Interest on New RD</th>
-                        <th>Interest on Old Corpus (FD)</th>
-                    </tr>
-                </thead>
-                <tbody id="scheduleBody"></tbody>
-            </table>
-            <p id="finalCorpus"></p>
-
-            <!-- Charts -->
-            <h3>Charts</h3>
-            <div class="row">
-                <div class="col-md-6 mb-4">
-                    <canvas id="corpusGrowthChart"></canvas>
-                </div>
-                <div class="col-md-6 mb-4">
-                    <canvas id="investedVsInterestChart"></canvas>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-md-12 mb-4">
-                    <canvas id="yearlyBreakdownChart"></canvas>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-md-12">
-                    <canvas id="cumulativeBreakdownChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Export Buttons -->
-            <div class="d-flex justify-content-center mt-3">
-                <button class="btn btn-success me-2" onclick="exportToExcel()">Export to Excel</button>
-                <button class="btn btn-info" onclick="generatePdfReport()">Generate PDF Report</button>
-            </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="calculate()">📊 Calculate Plan</button>
+            <button class="btn btn-secondary" onclick="exportExcel()">📥 Export to Excel</button>
+            <button class="btn btn-secondary" onclick="window.print()">📄 Generate PDF</button>
         </div>
     </div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Results Section -->
+    <div id="results-section" class="hidden">
+        <!-- Summary -->
+        <div class="card">
+            <h2 class="card-title">Financial Summary</h2>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <h3>Total Invested</h3>
+                    <p id="sum-invested">₹0</p>
+                </div>
+                <div class="summary-item interest">
+                    <h3>Total Interest Earned</h3>
+                    <p id="sum-interest">₹0</p>
+                </div>
+                <div class="summary-item corpus">
+                    <h3>Final Corpus</h3>
+                    <p id="sum-corpus">₹0</p>
+                </div>
+            </div>
+        </div>
 
-    <script>
-        // Show/hide fields based on mode
-        document.getElementById('mode').addEventListener('change', function() {
-            const mode = this.value;
-            const initDepField = document.getElementById('initDepField');
-            const incPctField = document.getElementById('incPctField');
-            const targetCorpusField = document.getElementById('targetCorpusField');
+        <!-- Chart -->
+        <div class="card">
+            <h2 class="card-title">Wealth Growth Visualization</h2>
+            <div class="chart-container">
+                <canvas id="wealthChart"></canvas>
+            </div>
+        </div>
 
-            initDepField.classList.remove('hidden');
-            incPctField.classList.remove('hidden');
-            targetCorpusField.classList.add('hidden');
+        <!-- Table -->
+        <div class="card">
+            <h2 class="card-title">Yearly Schedule</h2>
+            <div class="table-wrapper">
+                <table id="schedule-table">
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th>Deposit/mo (₹)</th>
+                            <th>Yearly Invested (₹)</th>
+                            <th>RD Maturity (₹)</th>
+                            <th>Interest on FD (₹)</th>
+                            <th>Total Corpus (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 
-            if (mode === '2') {
-                initDepField.classList.add('hidden');
-                targetCorpusField.classList.remove('hidden');
-            } else if (mode === '3') {
-                incPctField.classList.add('hidden');
-                targetCorpusField.classList.remove('hidden');
+<script>
+    let chartInstance = null;
+    let scheduleData = [];
+
+    // Toggle UI based on selected mode
+    function toggleMode() {
+        const mode = document.getElementById('mode').value;
+        const grpInitial = document.getElementById('grp-initial');
+        const grpIncrement = document.getElementById('grp-increment');
+        const grpTarget = document.getElementById('grp-target');
+
+        grpInitial.classList.toggle('hidden', mode === '2');
+        grpIncrement.classList.toggle('hidden', mode === '3');
+        grpTarget.classList.toggle('hidden', mode === '1');
+    }
+
+    // Core Financial Calculation Engine
+    function runSimulation(initialP, incrementPct, years, ratePct) {
+        const r = ratePct / 100;
+        const mr = r / 12; // Monthly rate
+        const data = [];
+        let totalInvested = 0;
+        let fdCorpus = 0;
+
+        for (let y = 1; y <= years; y++) {
+            // Calculate monthly deposit for this year
+            const currentMonthly = initialP * Math.pow(1 + (incrementPct / 100), y - 1);
+            const yearlyInvested = currentMonthly * 12;
+            totalInvested += yearlyInvested;
+
+            // RD Maturity using monthly compounding formula
+            // M = P * [ (1 + r)^n - 1 ] / r
+            const rdMaturity = currentMonthly * ((Math.pow(1 + mr, 12) - 1) / mr);
+
+            // FD Interest on previous corpus
+            const fdInterest = fdCorpus * r;
+            
+            // Add new RD maturity to FD corpus
+            fdCorpus = fdCorpus + rdMaturity + fdInterest;
+
+            data.push({
+                year: y,
+                monthly: currentMonthly,
+                invested: yearlyInvested,
+                rdMat: rdMaturity,
+                fdInt: fdInterest,
+                corpus: fdCorpus
+            });
+        }
+        return { data, totalInvested, finalCorpus: fdCorpus };
+    }
+
+    // Binary Search for Mode 2 (Solve Initial Deposit)
+    function solveInitialDeposit(increment, years, rate, target) {
+        let low = 100, high = 10000000;
+        for (let i = 0; i < 100; i++) {
+            let mid = (low + high) / 2;
+            let res = runSimulation(mid, increment, years, rate);
+            if (res.finalCorpus < target) low = mid;
+            else high = mid;
+        }
+        return low;
+    }
+
+    // Binary Search for Mode 3 (Solve Increment)
+    function solveIncrement(initial, years, rate, target) {
+        let low = 0, high = 100;
+        for (let i = 0; i < 100; i++) {
+            let mid = (low + high) / 2;
+            let res = runSimulation(initial, mid, years, rate);
+            if (res.finalCorpus < target) low = mid;
+            else high = mid;
+        }
+        return low;
+    }
+
+    // Main Calculate Function
+    function calculate() {
+        const rate = parseFloat(document.getElementById('rate').value);
+        const years = parseInt(document.getElementById('years').value);
+        const mode = document.getElementById('mode').value;
+
+        let initial, increment, target;
+        
+        if (mode === '1') {
+            initial = parseFloat(document.getElementById('initial').value);
+            increment = parseFloat(document.getElementById('increment').value);
+        } else if (mode === '2') {
+            increment = parseFloat(document.getElementById('increment').value);
+            target = parseFloat(document.getElementById('target').value);
+            initial = solveInitialDeposit(increment, years, rate, target);
+            document.getElementById('initial').value = initial.toFixed(0); // Update UI
+        } else {
+            initial = parseFloat(document.getElementById('initial').value);
+            target = parseFloat(document.getElementById('target').value);
+            increment = solveIncrement(initial, years, rate, target);
+            document.getElementById('increment').value = increment.toFixed(2); // Update UI
+        }
+
+        const result = runSimulation(initial, increment, years, rate);
+        scheduleData = result.data;
+
+        renderSummary(result.totalInvested, result.finalCorpus);
+        renderTable(scheduleData);
+        renderChart(scheduleData);
+
+        document.getElementById('results-section').classList.remove('hidden');
+        document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // UI Renderers
+    function formatCurrency(num) {
+        return '₹' + Math.round(num).toLocaleString('en-IN');
+    }
+
+    function renderSummary(invested, corpus) {
+        document.getElementById('sum-invested').innerText = formatCurrency(invested);
+        document.getElementById('sum-interest').innerText = formatCurrency(corpus - invested);
+        document.getElementById('sum-corpus').innerText = formatCurrency(corpus);
+    }
+
+    function renderTable(data) {
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = '';
+        data.forEach(row => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${row.year}</td>
+                    <td>${formatCurrency(row.monthly)}</td>
+                    <td>${formatCurrency(row.invested)}</td>
+                    <td>${formatCurrency(row.rdMat)}</td>
+                    <td>${formatCurrency(row.fdInt)}</td>
+                    <td><strong>${formatCurrency(row.corpus)}</strong></td>
+                </tr>
+            `;
+        });
+    }
+
+    function renderChart(data) {
+        const ctx = document.getElementById('wealthChart').getContext('2d');
+        if (chartInstance) chartInstance.destroy();
+
+        const labels = data.map(d => `Year ${d.year}`);
+        const corpusData = data.map(d => d.corpus);
+        const investedData = data.map(d => d.invested);
+
+        chartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Total Corpus',
+                        data: corpusData,
+                        backgroundColor: 'rgba(37, 99, 235, 0.7)',
+                        borderColor: 'rgba(37, 99, 235, 1)',
+                        borderWidth: 1,
+                        type: 'line',
+                        fill: false,
+                        tension: 0.3,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Yearly Investment',
+                        data: investedData,
+                        backgroundColor: 'rgba(16, 185, 129, 0.6)',
+                        borderColor: 'rgba(16, 185, 129, 1)',
+                        borderWidth: 1,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    y: { type: 'linear', position: 'left', title: { display: true, text: 'Corpus (₹)' } },
+                    y1: { type: 'linear', position: 'right', title: { display: true, text: 'Yearly Investment (₹)' }, grid: { drawOnChartArea: false } }
+                }
             }
         });
+    }
 
-        function formatINR(num) {
-            if (isNaN(num)) return '₹0';
-            num = parseFloat(num);
-            let suffix = '';
-            if (num >= 1e7) {
-                num /= 1e7;
-                suffix = ' Cr';
-            } else if (num >= 1e5) {
-                num /= 1e5;
-                suffix = ' L';
-            } else if (num >= 1e3) {
-                num /= 1e3;
-                suffix = ' K';
-            } else if (num >= 100) {
-                num /= 100;
-                suffix = ' H';
-            }
-            return '₹' + num.toFixed(2) + suffix;
+    // Export Functions
+    function exportExcel() {
+        if (scheduleData.length === 0) {
+            alert("Please calculate the plan first!");
+            return;
+        }
+        
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Year,Monthly Deposit,Yearly Invested,RD Maturity,FD Interest,Total Corpus\n";
+        
+        scheduleData.forEach(row => {
+            csvContent += `${row.year},${row.monthly.toFixed(2)},${row.invested.toFixed(2)},${row.rdMat.toFixed(2)},${row.fdInt.toFixed(2)},${row.corpus.toFixed(2)}\n`;
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "RD_FD_Planner_Schedule.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // Initialize UI
+    toggleMode();
+</script>
+
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RD→FD Cumulative Planner</title>
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --success: #10b981;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --border: #e5e7eb;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
 
-        function planCompoundRdFd(initialMonthly, annualRatePct, years, annualIncPct) {
-            const rMonth = annualRatePct / 100 / 12;
-            const rYear = annualRatePct / 100;
-            let lumpSum = 0.0;
-            let deposit = initialMonthly;
-            const schedule = [];
-            let totalInvested = 0.0;
-            let totalInterest = 0.0;
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
 
-            for (let yr = 1; yr <= years; yr++) {
-                const yearlyInvested = deposit * 12;
-                const rdFresh = deposit * (((1 + rMonth) ** 12 - 1) / rMonth) * (1 + rMonth);
-                const interestNew = rdFresh - yearlyInvested;
-                const interestOld = lumpSum * rYear;
-                lumpSum += rdFresh + interestOld;
-
-                schedule.push({
-                    year: yr,
-                    monthlyDeposit: deposit.toFixed(2),
-                    rdMaturity: rdFresh.toFixed(2),
-                    totalCorpus: lumpSum.toFixed(2),
-                    yearlyInvested: yearlyInvested.toFixed(2),
-                    interestNew: interestNew.toFixed(2),
-                    interestOld: interestOld.toFixed(2)
-                });
-
-                totalInvested += yearlyInvested;
-                totalInterest += interestNew + interestOld;
-
-                deposit *= (1 + annualIncPct / 100);
-            }
-
-            return { schedule, totalCorpus: lumpSum.toFixed(2), totalInvested: totalInvested.toFixed(2), totalInterest: totalInterest.toFixed(2) };
+        body {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 2rem 1rem;
         }
 
-        function findInitialDepositCompound(target, annualRatePct, years, annualIncPct, tol = 1e-2) {
-            let low = 0.0;
-            let high = target;
-            while (high - low > tol) {
-                const mid = (low + high) / 2;
-                const { totalCorpus } = planCompoundRdFd(mid, annualRatePct, years, annualIncPct);
-                if (parseFloat(totalCorpus) < target) {
-                    low = mid;
-                } else {
-                    high = mid;
-                }
-            }
-            return (low + high) / 2;
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
         }
 
-        function findGrowthRateCompound(target, annualRatePct, years, initialMonthly, tol = 1e-4) {
-            let low = 0.0;
-            let high = 1000.0;
-            const { totalCorpus: maxCorpus } = planCompoundRdFd(initialMonthly, annualRatePct, years, high);
-            if (parseFloat(maxCorpus) < target) {
-                throw new Error(`Target ₹${target.toFixed(0)} cannot be reached even with 1000% annual increments; max possible ≈ ₹${maxCorpus}`);
-            }
-            while (high - low > tol) {
-                const mid = (low + high) / 2;
-                const { totalCorpus } = planCompoundRdFd(initialMonthly, annualRatePct, years, mid);
-                if (parseFloat(totalCorpus) < target) {
-                    low = mid;
-                } else {
-                    high = mid;
-                }
-            }
-            return (low + high) / 2;
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
         }
 
-        function calculatePlan() {
-            const annualRate = parseFloat(document.getElementById('annualRate').value);
-            const years = parseInt(document.getElementById('years').value);
-            const mode = document.getElementById('mode').value;
-            let initialMonthly, annualIncPct, targetCorpus;
-            let result;
-
-            if (isNaN(annualRate) || annualRate <= 0 || annualRate > 50) {
-                alert('Please enter a valid annual interest rate between 0.01% and 50%.');
-                return;
-            }
-            if (isNaN(years) || years < 1 || years > 100) {
-                alert('Please enter a valid number of years between 1 and 100.');
-                return;
-            }
-
-            try {
-                if (mode === '1') {
-                    initialMonthly = parseFloat(document.getElementById('initialMonthly').value);
-                    annualIncPct = parseFloat(document.getElementById('annualIncPct').value);
-                    if (isNaN(initialMonthly) || initialMonthly <= 0) {
-                        alert('Please enter a valid initial monthly deposit greater than 0.');
-                        return;
-                    }
-                    if (isNaN(annualIncPct) || annualIncPct < 0) {
-                        alert('Please enter a valid annual increment percentage (0 or positive).');
-                        return;
-                    }
-                    result = planCompoundRdFd(initialMonthly, annualRate, years, annualIncPct);
-                    document.getElementById('computedValue').innerText = '';
-                } else if (mode === '2') {
-                    annualIncPct = parseFloat(document.getElementById('annualIncPct').value);
-                    targetCorpus = parseFloat(document.getElementById('targetCorpus').value);
-                    if (isNaN(annualIncPct) || annualIncPct < 0) {
-                        alert('Please enter a valid annual increment percentage (0 or positive).');
-                        return;
-                    }
-                    if (isNaN(targetCorpus) || targetCorpus <= 0) {
-                        alert('Please enter a valid target corpus greater than 0.');
-                        return;
-                    }
-                    initialMonthly = findInitialDepositCompound(targetCorpus, annualRate, years, annualIncPct);
-                    result = planCompoundRdFd(initialMonthly, annualRate, years, annualIncPct);
-                    document.getElementById('computedValue').innerText = `Computed Initial Deposit: ${formatINR(initialMonthly)}/mo`;
-                } else if (mode === '3') {
-                    initialMonthly = parseFloat(document.getElementById('initialMonthly').value);
-                    targetCorpus = parseFloat(document.getElementById('targetCorpus').value);
-                    if (isNaN(initialMonthly) || initialMonthly <= 0) {
-                        alert('Please enter a valid initial monthly deposit greater than 0.');
-                        return;
-                    }
-                    if (isNaN(targetCorpus) || targetCorpus <= 0) {
-                        alert('Please enter a valid target corpus greater than 0.');
-                        return;
-                    }
-                    annualIncPct = findGrowthRateCompound(targetCorpus, annualRate, years, initialMonthly);
-                    result = planCompoundRdFd(initialMonthly, annualRate, years, annualIncPct);
-                    document.getElementById('computedValue').innerText = `Computed Annual Increment: ${annualIncPct.toFixed(2)}%`;
-                }
-
-                displayResults(result, years);
-            } catch (error) {
-                alert(`Error: ${error.message}`);
-            }
+        header h1 {
+            font-size: 2.2rem;
+            color: var(--primary-dark);
+            margin-bottom: 0.5rem;
         }
 
-        function displayResults(result, years) {
-            const scheduleBody = document.getElementById('scheduleBody');
-            scheduleBody.innerHTML = '';
-            result.schedule.forEach(row => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
+        header p {
+            color: var(--text-light);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--primary-dark);
+            border-bottom: 2px solid var(--bg);
+            padding-bottom: 0.5rem;
+        }
+
+        /* Form Styles */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--text-light);
+        }
+
+        .form-group input, .form-group select {
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
+        
+        .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+        .btn-secondary:hover { background: #e5e7eb; }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .summary-item {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 1.25rem;
+            border-radius: 10px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .summary-item.interest { border-left-color: var(--success); }
+        .summary-item.corpus { border-left-color: #f59e0b; }
+
+        .summary-item h3 { font-size: 0.85rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; }
+        .summary-item p { font-size: 1.5rem; font-weight: 700; color: var(--text); margin-top: 0.25rem; }
+
+        /* Table Styles */
+        .table-wrapper { overflow-x: auto; }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: right;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th { background: #f8fafc; color: var(--text-light); font-weight: 600; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5px; }
+        td:first-child, th:first-child { text-align: center; }
+        tr:hover { background: #f9fafb; }
+
+        /* Chart */
+        .chart-container {
+            position: relative;
+            height: 350px;
+            width: 100%;
+        }
+
+        .hidden { display: none !important; }
+
+        /* Print Styles for PDF */
+        @media print {
+            body { background: white; padding: 0; }
+            .card { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
+            .btn-group, header p { display: none; }
+            .no-print { display: none; }
+        }
+
+        @media (max-width: 768px) {
+            header h1 { font-size: 1.75rem; }
+            .form-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>RD→FD Cumulative Planner</h1>
+        <p>Plan your recurring deposits rolling over into fixed deposits with compound interest. Solve for schedules, initial deposits, or annual increments.</p>
+    </header>
+
+    <!-- Input Card -->
+    <div class="card no-print">
+        <h2 class="card-title">Configuration</h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Annual Interest Rate (%)</label>
+                <input type="number" id="rate" value="7" step="0.1" min="0">
+            </div>
+            <div class="form-group">
+                <label>Total Number of Years</label>
+                <input type="number" id="years" value="10" min="1" max="50">
+            </div>
+            <div class="form-group">
+                <label>Choose Mode</label>
+                <select id="mode" onchange="toggleMode()">
+                    <option value="1">1) Initial & Increment → Show Schedule</option>
+                    <option value="2">2) Increment & Target → Solve Initial Deposit</option>
+                    <option value="3">3) Initial & Target → Solve Increment</option>
+                </select>
+            </div>
+            <div class="form-group" id="grp-initial">
+                <label>Initial Monthly RD Deposit (₹)</label>
+                <input type="number" id="initial" value="10000" min="100">
+            </div>
+            <div class="form-group" id="grp-increment">
+                <label>Annual Increment (%)</label>
+                <input type="number" id="increment" value="10" step="0.1" min="0">
+            </div>
+            <div class="form-group hidden" id="grp-target">
+                <label>Target Corpus After Roll-Overs (₹)</label>
+                <input type="number" id="target" value="5000000" min="1000">
+            </div>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="calculate()">📊 Calculate Plan</button>
+            <button class="btn btn-secondary" onclick="exportExcel()">📥 Export to Excel</button>
+            <button class="btn btn-secondary" onclick="window.print()">📄 Generate PDF</button>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results-section" class="hidden">
+        <!-- Summary -->
+        <div class="card">
+            <h2 class="card-title">Financial Summary</h2>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <h3>Total Invested</h3>
+                    <p id="sum-invested">₹0</p>
+                </div>
+                <div class="summary-item interest">
+                    <h3>Total Interest Earned</h3>
+                    <p id="sum-interest">₹0</p>
+                </div>
+                <div class="summary-item corpus">
+                    <h3>Final Corpus</h3>
+                    <p id="sum-corpus">₹0</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="card">
+            <h2 class="card-title">Wealth Growth Visualization</h2>
+            <div class="chart-container">
+                <canvas id="wealthChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="card">
+            <h2 class="card-title">Yearly Schedule</h2>
+            <div class="table-wrapper">
+                <table id="schedule-table">
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th>Deposit/mo (₹)</th>
+                            <th>Yearly Invested (₹)</th>
+                            <th>RD Maturity (₹)</th>
+                            <th>Interest on FD (₹)</th>
+                            <th>Total Corpus (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let chartInstance = null;
+    let scheduleData = [];
+
+    // Toggle UI based on selected mode
+    function toggleMode() {
+        const mode = document.getElementById('mode').value;
+        const grpInitial = document.getElementById('grp-initial');
+        const grpIncrement = document.getElementById('grp-increment');
+        const grpTarget = document.getElementById('grp-target');
+
+        grpInitial.classList.toggle('hidden', mode === '2');
+        grpIncrement.classList.toggle('hidden', mode === '3');
+        grpTarget.classList.toggle('hidden', mode === '1');
+    }
+
+    // Core Financial Calculation Engine
+    function runSimulation(initialP, incrementPct, years, ratePct) {
+        const r = ratePct / 100;
+        const mr = r / 12; // Monthly rate
+        const data = [];
+        let totalInvested = 0;
+        let fdCorpus = 0;
+
+        for (let y = 1; y <= years; y++) {
+            // Calculate monthly deposit for this year
+            const currentMonthly = initialP * Math.pow(1 + (incrementPct / 100), y - 1);
+            const yearlyInvested = currentMonthly * 12;
+            totalInvested += yearlyInvested;
+
+            // RD Maturity using monthly compounding formula
+            // M = P * [ (1 + r)^n - 1 ] / r
+            const rdMaturity = currentMonthly * ((Math.pow(1 + mr, 12) - 1) / mr);
+
+            // FD Interest on previous corpus
+            const fdInterest = fdCorpus * r;
+            
+            // Add new RD maturity to FD corpus
+            fdCorpus = fdCorpus + rdMaturity + fdInterest;
+
+            data.push({
+                year: y,
+                monthly: currentMonthly,
+                invested: yearlyInvested,
+                rdMat: rdMaturity,
+                fdInt: fdInterest,
+                corpus: fdCorpus
+            });
+        }
+        return { data, totalInvested, finalCorpus: fdCorpus };
+    }
+
+    // Binary Search for Mode 2 (Solve Initial Deposit)
+    function solveInitialDeposit(increment, years, rate, target) {
+        let low = 100, high = 10000000;
+        for (let i = 0; i < 100; i++) {
+            let mid = (low + high) / 2;
+            let res = runSimulation(mid, increment, years, rate);
+            if (res.finalCorpus < target) low = mid;
+            else high = mid;
+        }
+        return low;
+    }
+
+    // Binary Search for Mode 3 (Solve Increment)
+    function solveIncrement(initial, years, rate, target) {
+        let low = 0, high = 100;
+        for (let i = 0; i < 100; i++) {
+            let mid = (low + high) / 2;
+            let res = runSimulation(initial, mid, years, rate);
+            if (res.finalCorpus < target) low = mid;
+            else high = mid;
+        }
+        return low;
+    }
+
+    // Main Calculate Function
+    function calculate() {
+        const rate = parseFloat(document.getElementById('rate').value);
+        const years = parseInt(document.getElementById('years').value);
+        const mode = document.getElementById('mode').value;
+
+        let initial, increment, target;
+        
+        if (mode === '1') {
+            initial = parseFloat(document.getElementById('initial').value);
+            increment = parseFloat(document.getElementById('increment').value);
+        } else if (mode === '2') {
+            increment = parseFloat(document.getElementById('increment').value);
+            target = parseFloat(document.getElementById('target').value);
+            initial = solveInitialDeposit(increment, years, rate, target);
+            document.getElementById('initial').value = initial.toFixed(0); // Update UI
+        } else {
+            initial = parseFloat(document.getElementById('initial').value);
+            target = parseFloat(document.getElementById('target').value);
+            increment = solveIncrement(initial, years, rate, target);
+            document.getElementById('increment').value = increment.toFixed(2); // Update UI
+        }
+
+        const result = runSimulation(initial, increment, years, rate);
+        scheduleData = result.data;
+
+        renderSummary(result.totalInvested, result.finalCorpus);
+        renderTable(scheduleData);
+        renderChart(scheduleData);
+
+        document.getElementById('results-section').classList.remove('hidden');
+        document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // UI Renderers
+    function formatCurrency(num) {
+        return '₹' + Math.round(num).toLocaleString('en-IN');
+    }
+
+    function renderSummary(invested, corpus) {
+        document.getElementById('sum-invested').innerText = formatCurrency(invested);
+        document.getElementById('sum-interest').innerText = formatCurrency(corpus - invested);
+        document.getElementById('sum-corpus').innerText = formatCurrency(corpus);
+    }
+
+    function renderTable(data) {
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = '';
+        data.forEach(row => {
+            tbody.innerHTML += `
+                <tr>
                     <td>${row.year}</td>
-                    <td>${formatINR(row.monthlyDeposit)}</td>
-                    <td>${formatINR(row.rdMaturity)}</td>
-                    <td>${formatINR(row.totalCorpus)}</td>
-                    <td>${formatINR(row.yearlyInvested)}</td>
-                    <td>${formatINR(row.interestNew)}</td>
-                    <td>${formatINR(row.interestOld)}</td>
-                `;
-                scheduleBody.appendChild(tr);
-            });
+                    <td>${formatCurrency(row.monthly)}</td>
+                    <td>${formatCurrency(row.invested)}</td>
+                    <td>${formatCurrency(row.rdMat)}</td>
+                    <td>${formatCurrency(row.fdInt)}</td>
+                    <td><strong>${formatCurrency(row.corpus)}</strong></td>
+                </tr>
+            `;
+        });
+    }
 
-            const totalRdInterest = result.schedule.reduce((sum, row) => sum + parseFloat(row.interestNew), 0).toFixed(2);
-            const totalFdInterest = result.schedule.reduce((sum, row) => sum + parseFloat(row.interestOld), 0).toFixed(2);
-            document.getElementById('finalCorpus').innerText = `Final Corpus after ${years} years: ${formatINR(result.totalCorpus)}\nTotal Invested: ${formatINR(result.totalInvested)}\nTotal RD Interest: ${formatINR(totalRdInterest)}\nTotal FD Interest: ${formatINR(totalFdInterest)}\nTotal Interest: ${formatINR(result.totalInterest)}`;
+    function renderChart(data) {
+        const ctx = document.getElementById('wealthChart').getContext('2d');
+        if (chartInstance) chartInstance.destroy();
 
-            // Show results
-            document.getElementById('results').classList.remove('hidden');
+        const labels = data.map(d => `Year ${d.year}`);
+        const corpusData = data.map(d => d.corpus);
+        const investedData = data.map(d => d.invested);
 
-            // Charts
-            renderCorpusGrowthChart(result.schedule);
-            renderInvestedVsInterestChart(result.schedule);
-            renderYearlyBreakdownChart(result.schedule);
-            renderCumulativeBreakdownChart(result.schedule);
-        }
-
-        function getChartOptions() {
-            return {
-                responsive: true,
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return context.dataset.label + ': ' + formatINR(context.raw);
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return formatINR(value).replace('₹', '');
-                            }
-                        }
-                    }
-                }
-            };
-        }
-
-        function renderCorpusGrowthChart(schedule) {
-            const ctx = document.getElementById('corpusGrowthChart').getContext('2d');
-            const options = getChartOptions();
-            options.scales.y.stacked = false;
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: schedule.map(row => `Year ${row.year}`),
-                    datasets: [{
+        chartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
                         label: 'Total Corpus',
-                        data: schedule.map(row => row.totalCorpus),
-                        borderColor: '#4CAF50',
-                        fill: false
-                    }]
-                },
-                options
-            });
-        }
-
-        function renderInvestedVsInterestChart(schedule) {
-            const ctx = document.getElementById('investedVsInterestChart').getContext('2d');
-            const totalInv = schedule.reduce((sum, row) => sum + parseFloat(row.yearlyInvested), 0);
-            const totalRd = schedule.reduce((sum, row) => sum + parseFloat(row.interestNew), 0);
-            const totalFd = schedule.reduce((sum, row) => sum + parseFloat(row.interestOld), 0);
-            new Chart(ctx, {
-                type: 'pie',
-                data: {
-                    labels: ['Total Invested', 'Total RD Interest', 'Total FD Interest'],
-                    datasets: [{
-                        data: [totalInv, totalRd, totalFd],
-                        backgroundColor: ['#36A2EB', '#FFCE56', '#FF6384']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return context.label + ': ' + formatINR(context.raw);
-                                }
-                            }
-                        }
+                        data: corpusData,
+                        backgroundColor: 'rgba(37, 99, 235, 0.7)',
+                        borderColor: 'rgba(37, 99, 235, 1)',
+                        borderWidth: 1,
+                        type: 'line',
+                        fill: false,
+                        tension: 0.3,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Yearly Investment',
+                        data: investedData,
+                        backgroundColor: 'rgba(16, 185, 129, 0.6)',
+                        borderColor: 'rgba(16, 185, 129, 1)',
+                        borderWidth: 1,
+                        yAxisID: 'y1'
                     }
-                }
-            });
-        }
-
-        function renderYearlyBreakdownChart(schedule) {
-            const ctx = document.getElementById('yearlyBreakdownChart').getContext('2d');
-            const options = getChartOptions();
-            options.scales.y.stacked = true;
-            options.scales.x = { stacked: true };
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: schedule.map(row => `Year ${row.year}`),
-                    datasets: [
-                        { label: 'Yearly Invested', data: schedule.map(row => row.yearlyInvested), backgroundColor: '#36A2EB' },
-                        { label: 'Interest on New RD', data: schedule.map(row => row.interestNew), backgroundColor: '#FFCE56' },
-                        { label: 'Interest on Old Corpus (FD)', data: schedule.map(row => row.interestOld), backgroundColor: '#FF6384' }
-                    ]
-                },
-                options
-            });
-        }
-
-        function renderCumulativeBreakdownChart(schedule) {
-            const ctx = document.getElementById('cumulativeBreakdownChart').getContext('2d');
-            const options = getChartOptions();
-            options.scales.y.stacked = true;
-            const labels = schedule.map(row => `Year ${row.year}`);
-            let cumInv = 0, cumRd = 0, cumFd = 0;
-            const dataInv = [], dataRd = [], dataFd = [];
-            schedule.forEach(row => {
-                cumInv += parseFloat(row.yearlyInvested);
-                cumRd += parseFloat(row.interestNew);
-                cumFd += parseFloat(row.interestOld);
-                dataInv.push(cumInv);
-                dataRd.push(cumRd);
-                dataFd.push(cumFd);
-            });
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels,
-                    datasets: [
-                        { label: 'Cumulative Invested', data: dataInv, borderColor: '#808080', backgroundColor: 'rgba(128,128,128,0.5)', fill: true },
-                        { label: 'Cumulative RD Interest', data: dataRd, borderColor: '#FFCE56', backgroundColor: 'rgba(255,206,86,0.5)', fill: true },
-                        { label: 'Cumulative FD Interest', data: dataFd, borderColor: '#FF6384', backgroundColor: 'rgba(255,99,132,0.5)', fill: true }
-                    ]
-                },
-                options
-            });
-        }
-
-        function exportToExcel() {
-            const wsData = [
-                ['Year', 'Deposit/mo', 'RD Maturity', 'Total Corpus After FD', 'Yearly Invested', 'Interest on New RD', 'Interest on Old Corpus (FD)']
-            ];
-            const scheduleBody = document.getElementById('scheduleBody');
-            Array.from(scheduleBody.rows).forEach(row => {
-                const rowData = Array.from(row.cells).map(cell => cell.innerText.replace(/₹| L| Cr| K| H/g, ''));
-                wsData.push(rowData);
-            });
-            const ws = XLSX.utils.aoa_to_sheet(wsData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Schedule');
-            XLSX.writeFile(wb, 'rd_fd_plan.xlsx');
-        }
-
-        async function generatePdfReport() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            doc.text('RD→FD Cumulative Planner Report', 10, 10);
-            doc.text(document.getElementById('computedValue').innerText, 10, 20);
-
-            // Add final corpus multi-line
-            let y = 30;
-            const finalText = document.getElementById('finalCorpus').innerText.split('\n');
-            finalText.forEach(line => {
-                doc.text(line, 10, y);
-                y += 10;
-            });
-
-            // Add table
-            y += 10;
-            doc.text('Schedule:', 10, y);
-            y += 10;
-            const table = document.getElementById('scheduleTable');
-            const tableCanvas = await html2canvas(table);
-            const tableHeight = tableCanvas.height * 180 / tableCanvas.width;
-            doc.addImage(tableCanvas.toDataURL('image/png'), 'PNG', 10, y, 180, tableHeight);
-            y += tableHeight + 10;
-
-            if (y > 200) {
-                doc.addPage();
-                y = 10;
-            }
-
-            // Add charts
-            const charts = [
-                { id: 'corpusGrowthChart', title: 'Corpus Growth' },
-                { id: 'investedVsInterestChart', title: 'Invested vs Interest Breakdown' },
-                { id: 'yearlyBreakdownChart', title: 'Yearly Breakdown' },
-                { id: 'cumulativeBreakdownChart', title: 'Cumulative Breakdown' }
-            ];
-            for (const chart of charts) {
-                doc.text(chart.title, 10, y);
-                y += 10;
-                const canvas = document.getElementById(chart.id);
-                const imgData = await html2canvas(canvas);
-                doc.addImage(imgData.toDataURL('image/png'), 'PNG', 10, y, 180, 60);
-                y += 70;
-                if (y > 200) {
-                    doc.addPage();
-                    y = 10;
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    y: { type: 'linear', position: 'left', title: { display: true, text: 'Corpus (₹)' } },
+                    y1: { type: 'linear', position: 'right', title: { display: true, text: 'Yearly Investment (₹)' }, grid: { drawOnChartArea: false } }
                 }
             }
+        });
+    }
 
-            doc.save('rd_fd_report.pdf');
+    // Export Functions
+    function exportExcel() {
+        if (scheduleData.length === 0) {
+            alert("Please calculate the plan first!");
+            return;
         }
-    </script>
+        
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Year,Monthly Deposit,Yearly Invested,RD Maturity,FD Interest,Total Corpus\n";
+        
+        scheduleData.forEach(row => {
+            csvContent += `${row.year},${row.monthly.toFixed(2)},${row.invested.toFixed(2)},${row.rdMat.toFixed(2)},${row.fdInt.toFixed(2)},${row.corpus.toFixed(2)}\n`;
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "RD_FD_Planner_Schedule.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // Initialize UI
+    toggleMode();
+</script>
+
 </body>
 </html>
